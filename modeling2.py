@@ -1,5 +1,5 @@
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import confusion_matrix, classification_report
 import numpy as np
@@ -59,13 +59,13 @@ X_train = imputer.fit_transform(X_train)
 X_test = imputer.transform(X_test)
 
 # Initialize the HistGradientBoostingClassifier
-clf = HistGradientBoostingClassifier(random_state=37)
+reg = GradientBoostingClassifier(random_state=37)
 
 # Fit the model to the training data
-clf.fit(X_train, y_train)
+reg.fit(X_train, y_train)
 
 # Predict the clusters for the test data
-y_pred = clf.predict(X_test)
+y_pred = reg.predict(X_test)
 
 y_test = y_test.astype(str)
 y_pred = y_pred.astype(str)
