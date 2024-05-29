@@ -39,7 +39,7 @@ headers = ['id',
            ]
 
 # create a dataframe
-df_features = pd.DataFrame(columns = headers)
+df_svara_features = pd.DataFrame(columns = headers)
 
 # accessing the audio files
 single_svara_path = os.path.join('single_svara')
@@ -139,61 +139,66 @@ for file in os.listdir(single_svara_path):
                'is_dha': 1 if svara_type == 'dha' else 0,
                }
     
-    df_features = pd.concat([df_features, pd.DataFrame([new_row], columns=headers)], ignore_index=True)
+    df_svara_features = pd.concat([df_svara_features, pd.DataFrame([new_row], columns=headers)], ignore_index=True)
 # Sort dataframe by id to ensure sequential order
-df_features.sort_values(by='id', inplace=True)
+df_svara_features.sort_values(by='id', inplace=True)
 
 # Add previous and next svara features
-for i in range(len(df_features)):
+for i in range(len(df_svara_features)):
     if i > 0:
-        prev_svara_type = df_features.iloc[i - 1][['is_sa', 'is_ri', 'is_ga', 'is_ma', 'is_pa', 'is_dha', 'is_ni']]
+        prev_svara_type = df_svara_features.iloc[i - 1][['is_sa', 'is_ri', 'is_ga', 'is_ma', 'is_pa', 'is_dha', 'is_ni']]
         for svara in prev_svara_type.index:
             if prev_svara_type[svara] == 1:
-                df_features.loc[df_features.index[i], f'prev_{svara.split("_")[1]}'] = 1
+                df_svara_features.loc[df_svara_features.index[i], f'prev_{svara.split("_")[1]}'] = 1
     else:
         for svara in ['sa', 'ri', 'ga', 'ma', 'pa', 'dha', 'ni']:
-            df_features.loc[df_features.index[i], f'prev_{svara}'] = 0
+            df_svara_features.loc[df_svara_features.index[i], f'prev_{svara}'] = 0
 
-    if i < len(df_features) - 1:
-        next_svara_type = df_features.iloc[i + 1][['is_sa', 'is_ri', 'is_ga', 'is_ma', 'is_pa', 'is_dha', 'is_ni']]
+    if i < len(df_svara_features) - 1:
+        next_svara_type = df_svara_features.iloc[i + 1][['is_sa', 'is_ri', 'is_ga', 'is_ma', 'is_pa', 'is_dha', 'is_ni']]
         for svara in next_svara_type.index:
             if next_svara_type[svara] == 1:
-                df_features.loc[df_features.index[i], f'next_{svara.split("_")[1]}'] = 1
+                df_svara_features.loc[df_svara_features.index[i], f'next_{svara.split("_")[1]}'] = 1
     else:
         for svara in ['sa', 'ri', 'pa', 'ni', 'ma', 'ga', 'dha']:
-            df_features.loc[df_features.index[i], f'next_{svara}'] = 0
+            df_svara_features.loc[df_svara_features.index[i], f'next_{svara}'] = 0
 
 
 # Normalization using Z-score
 scaler = StandardScaler()
 
 # Separate the 'id' and svara type columns from the features to be normalized
-ids = df_features['id']
-svara_types = df_features[['is_sa', 'is_ri', 'is_pa', 'is_ni', 'is_ma', 'is_ga', 'is_dha']]
-prev_svara_types = df_features[['prev_sa', 'prev_ri', 'prev_pa', 'prev_ni', 'prev_ma', 'prev_ga', 'prev_dha']]
-next_svara_types = df_features[['next_sa', 'next_ri', 'next_pa', 'next_ni', 'next_ma', 'next_ga', 'next_dha']]
-features_to_normalize = df_features.drop(columns=['id', 'is_sa', 'is_ri', 'is_pa', 'is_ni', 'is_ma', 'is_ga', 'is_dha'])
+ids = df_svara_features['id']
+svara_types = df_svara_features[['is_sa', 'is_ri', 'is_pa', 'is_ni', 'is_ma', 'is_ga', 'is_dha']]
+prev_svara_types = df_svara_features[['prev_sa', 'prev_ri', 'prev_pa', 'prev_ni', 'prev_ma', 'prev_ga', 'prev_dha']]
+next_svara_types = df_svara_features[['next_sa', 'next_ri', 'next_pa', 'next_ni', 'next_ma', 'next_ga', 'next_dha']]
+features_to_normalize = df_svara_features.drop(columns=['id', 'is_sa', 'is_ri', 'is_pa', 'is_ni', 'is_ma', 'is_ga', 'is_dha'])
 
 # Apply Z-score normalization
 normalized_features = scaler.fit_transform(features_to_normalize)
 
 # Recreate the DataFrame with normalized features
-df_normalized = pd.DataFrame(normalized_features, columns=features_to_normalize.columns)
+df_sf_normalized = pd.DataFrame(normalized_features, columns=features_to_normalize.columns)
 
 # Add back the 'id' and svara type columns
-df_normalized['id'] = ids
-df_normalized[['prev_sa', 'prev_ri', 'prev_ga', 'prev_ma', 'prev_pa', 'prev_dha', 'prev_ni']] = prev_svara_types
-df_normalized[['next_sa', 'next_ri', 'next_ga', 'next_ma', 'next_pa', 'next_dha', 'next_ni']] = next_svara_types
-df_normalized[['is_sa', 'is_ri', 'is_ga', 'is_ma', 'is_pa', 'is_dha', 'is_ni']] = svara_types
+df_sf_normalized['id'] = ids
+df_sf_normalized[['prev_sa', 'prev_ri', 'prev_ga', 'prev_ma', 'prev_pa', 'prev_dha', 'prev_ni']] = prev_svara_types
+df_sf_normalized[['next_sa', 'next_ri', 'next_ga', 'next_ma', 'next_pa', 'next_dha', 'next_ni']] = next_svara_types
+df_sf_normalized[['is_sa', 'is_ri', 'is_ga', 'is_ma', 'is_pa', 'is_dha', 'is_ni']] = svara_types
 
 # Ensure the 'id' column is the first column
-df_normalized = df_normalized[['id'] + features_to_normalize.columns.tolist() + 
+df_sf_normalized = df_sf_normalized[['id'] + features_to_normalize.columns.tolist() + 
                               ['prev_sa', 'prev_ri', 'prev_ga', 'prev_ma', 'prev_pa', 'prev_dha', 'prev_ni'] +
                               ['next_sa', 'next_ri', 'next_ga', 'next_ma', 'next_pa', 'next_dha', 'next_ni'] + 
                               ['is_sa', 'is_ri', 'is_ga', 'is_ma', 'is_pa', 'is_dha', 'is_ni'] ]
 
 # Save the normalized dataframe to a CSV file
-df_normalized.sort_values(by='id', inplace=True)
-df_normalized.to_csv('features/features_normalized.csv', index=False)
+df_sf_normalized.sort_values(by='id', inplace=True)
+
+# create a folder named 'single_svara' to store the audio segments
+if not os.path.exists('svara_features'):
+    os.makedirs('svara_features')
+
+df_sf_normalized.to_csv('svara_features/svara_features_normalized.csv', index=False)
 
 

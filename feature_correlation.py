@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import spearmanr
 
 # Load the CSV file into a DataFrame
-csv_file_path = 'features/features_normalized.csv'  # Replace with your CSV file path
+csv_file_path = 'svara_features/svara_features_normalized.csv'  # Replace with your CSV file path
 df = pd.read_csv(csv_file_path)
 
 # Exclude the first column (element IDs) from the features
