@@ -132,11 +132,11 @@ for file in os.listdir(single_svara_path):
                'next_sa': 0, 'next_ri': 0, 'next_ga': 0, 'next_ma': 0, 'next_pa': 0, 'next_dha': 0, 'next_ni': 0,
                'is_sa': 1 if svara_type == 'sa' else 0,
                'is_ri': 1 if svara_type == 'ri' else 0,
-               'is_pa': 1 if svara_type == 'pa' else 0,
-               'is_ni': 1 if svara_type == 'ni' else 0,
-               'is_ma': 1 if svara_type == 'ma' else 0,
                'is_ga': 1 if svara_type == 'ga' else 0,
+               'is_ma': 1 if svara_type == 'ma' else 0,
+               'is_pa': 1 if svara_type == 'pa' else 0,               
                'is_dha': 1 if svara_type == 'dha' else 0,
+               'is_ni': 1 if svara_type == 'ni' else 0,
                }
     
     df_svara_features = pd.concat([df_svara_features, pd.DataFrame([new_row], columns=headers)], ignore_index=True)
@@ -160,7 +160,7 @@ for i in range(len(df_svara_features)):
             if next_svara_type[svara] == 1:
                 df_svara_features.loc[df_svara_features.index[i], f'next_{svara.split("_")[1]}'] = 1
     else:
-        for svara in ['sa', 'ri', 'pa', 'ni', 'ma', 'ga', 'dha']:
+        for svara in ['sa', 'ri', 'ga', 'ma', 'pa', 'dha', 'ni']:
             df_svara_features.loc[df_svara_features.index[i], f'next_{svara}'] = 0
 
 
@@ -169,10 +169,10 @@ scaler = StandardScaler()
 
 # Separate the 'id' and svara type columns from the features to be normalized
 ids = df_svara_features['id']
-svara_types = df_svara_features[['is_sa', 'is_ri', 'is_pa', 'is_ni', 'is_ma', 'is_ga', 'is_dha']]
-prev_svara_types = df_svara_features[['prev_sa', 'prev_ri', 'prev_pa', 'prev_ni', 'prev_ma', 'prev_ga', 'prev_dha']]
-next_svara_types = df_svara_features[['next_sa', 'next_ri', 'next_pa', 'next_ni', 'next_ma', 'next_ga', 'next_dha']]
-features_to_normalize = df_svara_features.drop(columns=['id', 'is_sa', 'is_ri', 'is_pa', 'is_ni', 'is_ma', 'is_ga', 'is_dha'])
+svara_types = df_svara_features[['is_sa', 'is_ri', 'is_ga', 'is_ma', 'is_pa', 'is_dha', 'is_ni']]
+prev_svara_types = df_svara_features[['prev_sa', 'prev_ri', 'prev_ga', 'prev_ma', 'prev_pa', 'prev_dha', 'prev_ni']]
+next_svara_types = df_svara_features[['next_sa', 'next_ri', 'next_ga', 'next_ma', 'next_pa', 'next_dha', 'next_ni']]
+features_to_normalize = df_svara_features.drop(columns=['id', 'is_sa', 'is_ri', 'is_ga', 'is_ma', 'is_pa', 'is_dha', 'is_ni'])
 
 # Apply Z-score normalization
 normalized_features = scaler.fit_transform(features_to_normalize)
