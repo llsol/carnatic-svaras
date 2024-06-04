@@ -31,6 +31,7 @@ df_stats_results = pd.DataFrame(stats_results).T
 print("Statistical Test Results (t-test):")
 print(df_stats_results)
 
+'''
 # Plotting feature differences
 plt.figure(figsize=(15, 10))
 for i, column in enumerate(df_feature_diffs.columns):
@@ -42,6 +43,7 @@ for i, column in enumerate(df_feature_diffs.columns):
         plt.ylabel('Difference')
 plt.tight_layout()
 plt.show()
+'''
 
 # Visualizing feature distributions
 plt.figure(figsize=(15, 10))
