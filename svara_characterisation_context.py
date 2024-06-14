@@ -4,7 +4,6 @@ import pandas as pd
 import librosa
 from sklearn.preprocessing import StandardScaler
 
-# Headers for the DataFrame
 headers = ['id',
            'max pitch', 'max pitch prev', 'max pitch post',
            'min pitch', 'min pitch prev', 'min pitch post',
@@ -46,6 +45,12 @@ def time_to_seconds(time_str):
 annotations['start'] = annotations['start'].apply(time_to_seconds)
 annotations['end'] = annotations['end'].apply(time_to_seconds)
 
+# Reference frequency in Hz
+reference_frequency = 261.63  # C4 (Do central)
+
+def hz_to_cents(hz, reference_frequency):
+    return 1200 * np.log2(hz / reference_frequency)
+
 # Initialize id
 id = 1
 
@@ -60,6 +65,20 @@ def extract_features(y_segment, sr):
     min_pitch = np.min(valid_pitches)
     mean_pitch = np.mean(valid_pitches)
     std = np.std(valid_pitches)
+    
+    # Handle infinite values
+    if np.isinf(max_pitch) or np.isinf(min_pitch) or np.isinf(mean_pitch) or np.isinf(std):
+        # Replace infinite values with NaN or a large number
+        max_pitch_cents = np.nan
+        min_pitch_cents = np.nan
+        mean_pitch_cents = np.nan
+        std_cents = np.nan
+    else:
+        max_pitch_cents = hz_to_cents(max_pitch, reference_frequency)
+        min_pitch_cents = hz_to_cents(min_pitch, reference_frequency)
+        mean_pitch_cents = hz_to_cents(mean_pitch, reference_frequency)
+        std_cents = hz_to_cents(std, reference_frequency)
+
     second_derivative = np.diff(np.diff(magnitudes))
     num_change_points = np.sum(second_derivative[:-1] * second_derivative[1:] < 0)
     splits = np.array_split(y_segment, 200)
@@ -71,11 +90,13 @@ def extract_features(y_segment, sr):
     ber = np.sum(stft[:stft.shape[0] // 2, :], axis=0) / np.sum(stft[stft.shape[0] // 2:, :], axis=0)
     band_energy_ratio = np.mean(ber)
     spectral_centroid = np.mean(librosa.feature.spectral_centroid(y=y_segment, sr=sr))
+    spectral_centroid_cents = hz_to_cents(spectral_centroid, reference_frequency)
     spectral_bandwidth = np.mean(librosa.feature.spectral_bandwidth(y=y_segment, sr=sr))
+    spectral_bandwidth_cents = hz_to_cents(spectral_bandwidth, reference_frequency)
     mfccs = librosa.feature.mfcc(y=y_segment, sr=sr, n_mfcc=13)
     mfccs_mean = np.mean(mfccs, axis=1)
     
-    return [max_pitch, min_pitch, mean_pitch, num_change_points, std, zero_cross, loudness, mean_amplitude_envelope, band_energy_ratio, spectral_centroid, spectral_bandwidth] + list(mfccs_mean)
+    return [max_pitch_cents, min_pitch_cents, mean_pitch_cents, num_change_points, std_cents, zero_cross, loudness, mean_amplitude_envelope, band_energy_ratio, spectral_centroid_cents, spectral_bandwidth_cents] + list(mfccs_mean)
 
 # Iterate through each row in the annotations file
 for _, row in annotations.iterrows():
@@ -103,65 +124,45 @@ for _, row in annotations.iterrows():
     prev_features = extract_features(y_prev, sr)
     post_features = extract_features(y_post, sr)
     
-    # Append the features to the dataframe
-    df_features = df_features.append({
-        'id': id,
-        'max pitch': svara_features[0], 'max pitch prev': prev_features[0], 'max pitch post': post_features[0],
-        'min pitch': svara_features[1], 'min pitch prev': prev_features[1], 'min pitch post': post_features[1],
-        'mean pitch': svara_features[2], 'mean pitch prev': prev_features[2], 'mean pitch post': post_features[2],
-        'num change points': svara_features[3], 'num change points prev': prev_features[3], 'num change points post': post_features[3],
-        'standard deviation': svara_features[4], 'standard deviation prev': prev_features[4], 'standard deviation post': post_features[4],
-        'zero cross': svara_features[5], 'zero cross prev': prev_features[5], 'zero cross post': post_features[5],
-        'loudness': svara_features[6], 'loudness prev': prev_features[6], 'loudness post': post_features[6],
-        'amplitude envelope': svara_features[7], 'amplitude envelope prev': prev_features[7], 'amplitude envelope post': post_features[7],
-        'band energy ratio': svara_features[8], 'band energy ratio prev': prev_features[8], 'band energy ratio post': post_features[8],
-        'spectral centroid': svara_features[9], 'spectral centroid prev': prev_features[9], 'spectral centroid post': post_features[9],
-        'spectral bandwidth': svara_features[10], 'spectral bandwidth prev': prev_features[10], 'spectral bandwidth post': post_features[10],
-        'mfcc1': svara_features[11], 'mfcc1 prev': prev_features[11], 'mfcc1 post': post_features[11], 
-        'mfcc2': svara_features[12], 'mfcc2 prev': prev_features[12], 'mfcc2 post': post_features[12],
-        'mfcc3': svara_features[13], 'mfcc3 prev': prev_features[13], 'mfcc3 post': post_features[13],
-        'mfcc4': svara_features[14], 'mfcc4 prev': prev_features[14], 'mfcc4 post': post_features[14],
-        'mfcc5': svara_features[15], 'mfcc5 prev': prev_features[15], 'mfcc5 post': post_features[15],
-        'mfcc6': svara_features[16], 'mfcc6 prev': prev_features[16], 'mfcc6 post': post_features[16],
-        'mfcc7': svara_features[17], 'mfcc7 prev': prev_features[17], 'mfcc7 post': post_features[17],
-        'mfcc8': svara_features[18], 'mfcc8 prev': prev_features[18], 'mfcc8 post': post_features[18],
-        'mfcc9': svara_features[19], 'mfcc9 prev': prev_features[19], 'mfcc9 post': post_features[19],
-        'mfcc10': svara_features[20], 'mfcc10 prev': prev_features[20], 'mfcc10 post': post_features[20],
-        'mfcc11': svara_features[21], 'mfcc11 prev': prev_features[21], 'mfcc11 post': post_features[21],
-        'mfcc12': svara_features[22], 'mfcc12 prev': prev_features[22], 'mfcc12 post': post_features[22],
-        'mfcc13': svara_features[23], 'mfcc13 prev': prev_features[23], 'mfcc13 post': post_features[23],
-        'is_sa': 1 if svara_type == 'sa' else 0,
-        'is_ri': 1 if svara_type == 'ri' else 0,
-        'is_pa': 1 if svara_type == 'pa' else 0,
-        'is_ni': 1 if svara_type == 'ni' else 0,
-        'is_ma': 1 if svara_type == 'ma' else 0,
-        'is_ga': 1 if svara_type == 'ga' else 0,
-        'is_dha': 1 if svara_type == 'dha' else 0
-    }, ignore_index=True) 
+    # Append the features to the dataframe only if there are no infinite values
+    if not any(np.isinf(f) for f in svara_features) and not any(np.isinf(f) for f in prev_features) and not any(np.isinf(f) for f in post_features):
+        df_features = df_features.append({
+            'id': id,
+            'max pitch': svara_features[0], 'max pitch prev': prev_features[0], 'max pitch post': post_features[0],
+            'min pitch': svara_features[1], 'min pitch prev': prev_features[1], 'min pitch post': post_features[1],
+            'mean pitch': svara_features[2], 'mean pitch prev': prev_features[2], 'mean pitch post': post_features[2],
+            'num change points': svara_features[3], 'num change points prev': prev_features[3], 'num change points post': post_features[3],
+            'standard deviation': svara_features[4], 'standard deviation prev': prev_features[4], 'standard deviation post': post_features[4],
+            'zero cross': svara_features[5], 'zero cross prev': prev_features[5], 'zero cross post': post_features[5],
+            'loudness': svara_features[6], 'loudness prev': prev_features[6], 'loudness post': post_features[6],
+            'amplitude envelope': svara_features[7], 'amplitude envelope prev': prev_features[7], 'amplitude envelope post': post_features[7],
+            'band energy ratio': svara_features[8], 'band energy ratio prev': prev_features[8], 'band energy ratio post': post_features[8],
+            'spectral centroid': svara_features[9], 'spectral centroid prev': prev_features[9], 'spectral centroid post': post_features[9],
+            'spectral bandwidth': svara_features[10], 'spectral bandwidth prev': prev_features[10], 'spectral bandwidth post': post_features[10],
+            'mfcc1': svara_features[11], 'mfcc1 prev': prev_features[11], 'mfcc1 post': post_features[11], 
+            'mfcc2': svara_features[12], 'mfcc2 prev': prev_features[12], 'mfcc2 post': post_features[12],
+            'mfcc3': svara_features[13], 'mfcc3 prev': prev_features[13], 'mfcc3 post': post_features[13],
+            'mfcc4': svara_features[14], 'mfcc4 prev': prev_features[14], 'mfcc4 post': post_features[14],
+            'mfcc5': svara_features[15], 'mfcc5 prev': prev_features[15], 'mfcc5 post': post_features[15],
+            'mfcc6': svara_features[16], 'mfcc6 prev': prev_features[16], 'mfcc6 post': post_features[16],
+            'mfcc7': svara_features[17], 'mfcc7 prev': prev_features[17], 'mfcc7 post': post_features[17],
+            'mfcc8': svara_features[18], 'mfcc8 prev': prev_features[18], 'mfcc8 post': post_features[18],
+            'mfcc9': svara_features[19], 'mfcc9 prev': prev_features[19], 'mfcc9 post': post_features[19],
+            'mfcc10': svara_features[20], 'mfcc10 prev': prev_features[20], 'mfcc10 post': post_features[20],
+            'mfcc11': svara_features[21], 'mfcc11 prev': prev_features[21], 'mfcc11 post': post_features[21],
+            'mfcc12': svara_features[22], 'mfcc12 prev': prev_features[22], 'mfcc12 post': post_features[22],
+            'mfcc13': svara_features[23], 'mfcc13 prev': prev_features[23], 'mfcc13 post': post_features[23],
+            'is_sa': 1 if svara_type == 'sa' else 0,
+            'is_ri': 1 if svara_type == 'ri' else 0,
+            'is_pa': 1 if svara_type == 'pa' else 0,
+            'is_ni': 1 if svara_type == 'ni' else 0,
+            'is_ma': 1 if svara_type == 'ma' else 0,
+            'is_ga': 1 if svara_type == 'ga' else 0,
+            'is_dha': 1 if svara_type == 'dha' else 0
+        }, ignore_index=True) 
     
-    id += 1
-
-# Normalization using Z-score
-scaler = StandardScaler()
-
-# Separate the 'id' and svara type columns from the features to be normalized
-ids = df_features['id']
-svara_types = df_features[['is_sa', 'is_ri', 'is_pa', 'is_ni', 'is_ma', 'is_ga', 'is_dha']]
-features_to_normalize = df_features.drop(columns=['id', 'is_sa', 'is_ri', 'is_pa', 'is_ni', 'is_ma', 'is_ga', 'is_dha'])
-
-# Apply Z-score normalization
-normalized_features = scaler.fit_transform(features_to_normalize)
-
-# Recreate the DataFrame with normalized features
-df_normalized = pd.DataFrame(normalized_features, columns=features_to_normalize.columns)
-
-# Add back the 'id' and svara type columns
-df_normalized['id'] = ids
-df_normalized[['is_sa', 'is_ri', 'is_pa', 'is_ni', 'is_ma', 'is_ga', 'is_dha']] = svara_types
-
-# Ensure the 'id' column is the first column
-df_normalized = df_normalized[['id'] + features_to_normalize.columns.tolist() + ['is_sa', 'is_ri', 'is_pa', 'is_ni', 'is_ma', 'is_ga', 'is_dha']]
-
-# Save the normalized dataframe to a CSV file
-df_normalized.sort_values(by='id', inplace=True)
-df_normalized.to_csv('svara_features/context_features_normalized.csv', index=False)
+        id += 1
+    
+# Save the dataframe to a CSV file
+df_features.sort_values(by='id', inplace=True)
+df_features.to_csv('svara_features/context_features.csv', index=False)

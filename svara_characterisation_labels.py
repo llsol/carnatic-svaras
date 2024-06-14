@@ -4,7 +4,6 @@ import pandas as pd
 import librosa
 from sklearn.preprocessing import StandardScaler
 
-# Headers for the DataFrame
 headers = ['id',
            'max pitch', 
            'min pitch', 
@@ -50,8 +49,58 @@ def time_to_seconds(time_str):
 annotations['start'] = annotations['start'].apply(time_to_seconds)
 annotations['end'] = annotations['end'].apply(time_to_seconds)
 
+# Reference frequency in Hz for pitch conversion to cents
+reference_frequency = 261.63  # C4 (Do central)
+
+# Convert Hz to cents
+def hz_to_cents(hz, reference_frequency):
+    return 1200 * np.log2(hz / reference_frequency)
+
 # Initialize id
 id = 1
+
+# Helper function to extract features from a given audio segment
+def extract_features(y_segment, sr):
+    pitches, magnitudes = librosa.piptrack(y=y_segment, sr=sr)
+    valid_pitches = pitches[pitches > 0]
+    
+    if len(valid_pitches) == 0:
+        return [0] * 13 + [0] * 13  # Return zeros if no valid pitches are found
+    
+    max_pitch = np.max(valid_pitches)
+    min_pitch = np.min(valid_pitches)
+    mean_pitch = np.mean(valid_pitches)
+    std = np.std(valid_pitches)
+    
+    # Handle infinite values
+    if np.isinf(max_pitch) or np.isinf(min_pitch) or np.isinf(mean_pitch) or np.isinf(std):
+        # Replace infinite values with NaN or a large number
+        max_pitch_cents = np.nan
+        min_pitch_cents = np.nan
+        mean_pitch_cents = np.nan
+        std_cents = np.nan
+    else:
+        max_pitch_cents = hz_to_cents(max_pitch, reference_frequency)
+        min_pitch_cents = hz_to_cents(min_pitch, reference_frequency)
+        mean_pitch_cents = hz_to_cents(mean_pitch, reference_frequency)
+        std_cents = hz_to_cents(std, reference_frequency)
+
+    second_derivative = np.diff(np.diff(magnitudes))
+    num_change_points = np.sum(second_derivative[:-1] * second_derivative[1:] < 0)
+    splits = np.array_split(y_segment, 200)
+    max_values = [np.max(np.abs(split)) for split in splits]
+    mean_amplitude_envelope = np.mean(max_values)
+    loudness = np.mean(librosa.feature.rms(y=y_segment)[0])
+    zero_cross = np.mean(librosa.feature.zero_crossing_rate(y=y_segment)[0])
+    stft = np.abs(librosa.stft(y_segment))
+    ber = np.sum(stft[:stft.shape[0] // 2, :], axis=0) / np.sum(stft[stft.shape[0] // 2:, :], axis=0)
+    band_energy_ratio = np.mean(ber)
+    spectral_centroid = np.mean(librosa.feature.spectral_centroid(y=y_segment, sr=sr))
+    spectral_bandwidth = np.mean(librosa.feature.spectral_bandwidth(y=y_segment, sr=sr))
+    mfccs = librosa.feature.mfcc(y=y_segment, sr=sr, n_mfcc=13)
+    mfccs_mean = np.mean(mfccs, axis=1)
+    
+    return [max_pitch_cents, min_pitch_cents, mean_pitch_cents, num_change_points, std_cents, zero_cross, loudness, mean_amplitude_envelope, band_energy_ratio, spectral_centroid, spectral_bandwidth] + list(mfccs_mean)
 
 # Iterate through each row in the annotations file
 for _, row in annotations.iterrows():
@@ -62,71 +111,41 @@ for _, row in annotations.iterrows():
     # Extract the segment of the audio corresponding to the svara
     y_svara = y[int(start * sr):int(end * sr)]
     
-    # Extract the pitch
-    pitches, magnitudes = librosa.piptrack(y=y_svara, sr=sr)
+    # Extract features for the current svara
+    svara_features = extract_features(y_svara, sr)
     
-    # Filter the valid frequencies
-    valid_pitches = pitches[pitches > 0]
-    
-    # PITCH CURVE FEATURES
-    max_pitch = np.max(valid_pitches) if len(valid_pitches) > 0 else 0
-    min_pitch = np.min(valid_pitches) if len(valid_pitches) > 0 else 0
-    mean_pitch = np.mean(valid_pitches) if len(valid_pitches) > 0 else 0
-    std = np.std(valid_pitches) if len(valid_pitches) > 0 else 0
-    
-    # Number of Change Points
-    second_derivative = np.diff(np.diff(magnitudes))
-    num_change_points = np.sum(second_derivative[:-1] * second_derivative[1:] < 0)
-    
-    # TIME DOMAIN FEATURES
-    splits = np.array_split(y_svara, 200)
-    max_values = [np.max(np.abs(split)) for split in splits]
-    mean_amplitude_envelope = np.mean(max_values)
-    loudness = np.mean(librosa.feature.rms(y=y_svara)[0])
-    zero_cross = np.mean(librosa.feature.zero_crossing_rate(y=y_svara)[0])
-    
-    # FREQUENCY DOMAIN FEATURES
-    stft = np.abs(librosa.stft(y_svara))
-    ber = np.sum(stft[:stft.shape[0] // 2, :], axis=0) / np.sum(stft[stft.shape[0] // 2:, :], axis=0)
-    band_energy_ratio = np.mean(ber)
-    spectral_centroid = np.mean(librosa.feature.spectral_centroid(y=y_svara, sr=sr))
-    spectral_bandwidth = np.mean(librosa.feature.spectral_bandwidth(y=y_svara, sr=sr))
-    
-    # Mel-Frequency Cepstral Coefficients (MFCCs)
-    mfccs = librosa.feature.mfcc(y=y_svara, sr=sr, n_mfcc=13)
-    mfccs_mean = np.mean(mfccs, axis=1)
-    
-    # Append the features to the dataframe
-    df_features = df_features.append({'id': id,
-                                      'max pitch': max_pitch, 
-                                      'min pitch': min_pitch, 
-                                      'mean pitch': mean_pitch, 
-                                      'num change points': num_change_points,
-                                      'standard deviation': std,
-                                      'zero cross': zero_cross,
-                                      'loudness': loudness,
-                                      'amplitude envelope': mean_amplitude_envelope,
-                                      'band energy ratio': band_energy_ratio,
-                                      'spectral centroid': spectral_centroid,
-                                      'spectral bandwidth': spectral_bandwidth,
-                                      'mfcc1': mfccs_mean[0], 'mfcc2': mfccs_mean[1], 'mfcc3': mfccs_mean[2],
-                                      'mfcc4': mfccs_mean[3], 'mfcc5': mfccs_mean[4], 'mfcc6': mfccs_mean[5],
-                                      'mfcc7': mfccs_mean[6], 'mfcc8': mfccs_mean[7], 'mfcc9': mfccs_mean[8],
-                                      'mfcc10': mfccs_mean[9], 'mfcc11': mfccs_mean[10], 'mfcc12': mfccs_mean[11],
-                                      'mfcc13': mfccs_mean[12],
-                                      'prev_sa': 0, 'prev_ri': 0, 'prev_ga': 0, 'prev_ma': 0, 'prev_pa': 0, 'prev_dha': 0, 'prev_ni': 0,
-                                      'next_sa': 0, 'next_ri': 0, 'next_ga': 0, 'next_ma': 0, 'next_pa': 0, 'next_dha': 0, 'next_ni': 0,
-                                      'is_sa': 1 if svara_type == 'sa' else 0,
-                                      'is_ri': 1 if svara_type == 'ri' else 0,
-                                      'is_pa': 1 if svara_type == 'pa' else 0,
-                                      'is_ni': 1 if svara_type == 'ni' else 0,
-                                      'is_ma': 1 if svara_type == 'ma' else 0,
-                                      'is_ga': 1 if svara_type == 'ga' else 0,
-                                      'is_dha': 1 if svara_type == 'dha' else 0,
-                                      }, ignore_index=True)
-    
-    # Increment the id
-    id += 1
+    # Append the features to the dataframe only if there are no infinite values
+    if not any(np.isnan(f) for f in svara_features):
+        df_features = df_features.append({
+            'id': id,
+            'max pitch': svara_features[0],
+            'min pitch': svara_features[1],
+            'mean pitch': svara_features[2],
+            'num change points': svara_features[3],
+            'standard deviation': svara_features[4],
+            'zero cross': svara_features[5],
+            'loudness': svara_features[6],
+            'amplitude envelope': svara_features[7],
+            'band energy ratio': svara_features[8],
+            'spectral centroid': svara_features[9],
+            'spectral bandwidth': svara_features[10],
+            'mfcc1': svara_features[11], 'mfcc2': svara_features[12], 'mfcc3': svara_features[13],
+            'mfcc4': svara_features[14], 'mfcc5': svara_features[15], 'mfcc6': svara_features[16],
+            'mfcc7': svara_features[17], 'mfcc8': svara_features[18], 'mfcc9': svara_features[19],
+            'mfcc10': svara_features[20], 'mfcc11': svara_features[21], 'mfcc12': svara_features[22],
+            'mfcc13': svara_features[23],
+            'prev_sa': 0, 'prev_ri': 0, 'prev_ga': 0, 'prev_ma': 0, 'prev_pa': 0, 'prev_dha': 0, 'prev_ni': 0,
+            'next_sa': 0, 'next_ri': 0, 'next_ga': 0, 'next_ma': 0, 'next_pa': 0, 'next_dha': 0, 'next_ni': 0,
+            'is_sa': 1 if svara_type == 'sa' else 0,
+            'is_ri': 1 if svara_type == 'ri' else 0,
+            'is_pa': 1 if svara_type == 'pa' else 0,
+            'is_ni': 1 if svara_type == 'ni' else 0,
+            'is_ma': 1 if svara_type == 'ma' else 0,
+            'is_ga': 1 if svara_type == 'ga' else 0,
+            'is_dha': 1 if svara_type == 'dha' else 0,
+        }, ignore_index=True)
+        
+        id += 1
 
 # Add previous and next svara features
 for i in range(len(df_features)):
@@ -148,29 +167,8 @@ for i in range(len(df_features)):
         for svara in ['sa', 'ri', 'ga', 'ma', 'pa', 'dha', 'ni']:
             df_features.loc[df_features.index[i], f'next_{svara}'] = 0
 
-# Normalization using Z-score
-scaler = StandardScaler()
-
-# Separate the 'id' and svara type columns from the features to be normalized
-ids = df_features['id']
-svara_types = df_features[['is_sa', 'is_ri', 'is_pa', 'is_ni', 'is_ma', 'is_ga', 'is_dha']]
-features_to_normalize = df_features.drop(columns=['id', 'is_sa', 'is_ri', 'is_pa', 'is_ni', 'is_ma', 'is_ga', 'is_dha'])
-
-# Apply Z-score normalization
-normalized_features = scaler.fit_transform(features_to_normalize)
-
-# Recreate the DataFrame with normalized features
-df_normalized = pd.DataFrame(normalized_features, columns=features_to_normalize.columns)
-
-# Add back the 'id' and svara type columns
-df_normalized['id'] = ids
-df_normalized[['is_sa', 'is_ri', 'is_pa', 'is_ni', 'is_ma', 'is_ga', 'is_dha']] = svara_types
-
-# Ensure the 'id' column is the first column
-df_normalized = df_normalized[['id'] + features_to_normalize.columns.tolist() + ['is_sa', 'is_ri', 'is_pa', 'is_ni', 'is_ma', 'is_ga', 'is_dha']]
-
-# Save the normalized dataframe to a CSV file
-df_normalized.sort_values(by='id', inplace=True)
-df_normalized.to_csv('svara_features/svara_features_normalized.csv', index=False)
+# Save the dataframe to a CSV file
+df_features.sort_values(by='id', inplace=True)
+df_features.to_csv('svara_features/labels_features.csv', index=False)
 
 
