@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import os
 
-data = pd.read_csv('features/features_normalized.csv')
+data = pd.read_csv('svara_features/svara_features_normalized.csv')
 
 # extract the features and target
 
