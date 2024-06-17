@@ -2,7 +2,6 @@ import os
 import numpy as np
 import pandas as pd
 import librosa
-import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 
 def characterisation_context(mp3_file, txt_file, output_csv='context_features.csv'):
@@ -167,37 +166,4 @@ def characterisation_context(mp3_file, txt_file, output_csv='context_features.cs
     df_features.sort_values(by='id', inplace=True)
     df_features.to_csv(output_csv, index=False)
 
-    # Generate and save plots
-    plt.figure(figsize=(14, 7))
-
-    # Plot 1: Mean Pitch vs Svara Type
-    plt.scatter(df_features['mean pitch'], df_features['is_sa'], label='Sa', alpha=0.6)
-    plt.scatter(df_features['mean pitch'], df_features['is_ri'], label='Ri', alpha=0.6)
-    plt.scatter(df_features['mean pitch'], df_features['is_pa'], label='Pa', alpha=0.6)
-    plt.scatter(df_features['mean pitch'], df_features['is_ni'], label='Ni', alpha=0.6)
-    plt.scatter(df_features['mean pitch'], df_features['is_ma'], label='Ma', alpha=0.6)
-    plt.scatter(df_features['mean pitch'], df_features['is_ga'], label='Ga', alpha=0.6)
-    plt.scatter(df_features['mean pitch'], df_features['is_dha'], label='Dha', alpha=0.6)
-    plt.xlabel('Mean Pitch (cents)')
-    plt.ylabel('Svara Type')
-    plt.title('Mean Pitch vs Svara Type')
-    plt.legend()
-    plt.savefig('mean_pitch_vs_svara_type.png')
-    plt.clf()
-
-    # Plot 2: Loudness vs Svara Type
-    plt.scatter(df_features['loudness'], df_features['is_sa'], label='Sa', alpha=0.6)
-    plt.scatter(df_features['loudness'], df_features['is_ri'], label='Ri', alpha=0.6)
-    plt.scatter(df_features['loudness'], df_features['is_pa'], label='Pa', alpha=0.6)
-    plt.scatter(df_features['loudness'], df_features['is_ni'], label='Ni', alpha=0.6)
-    plt.scatter(df_features['loudness'], df_features['is_ma'], label='Ma', alpha=0.6)
-    plt.scatter(df_features['loudness'], df_features['is_ga'], label='Ga', alpha=0.6)
-    plt.scatter(df_features['loudness'], df_features['is_dha'], label='Dha', alpha=0.6)
-    plt.xlabel('Loudness')
-    plt.ylabel('Svara Type')
-    plt.title('Loudness vs Svara Type')
-    plt.legend()
-    plt.savefig('loudness_vs_svara_type.png')
-    plt.clf()
-
-    return output_csv, 'mean_pitch_vs_svara_type.png', 'loudness_vs_svara_type.png'
+    return output_csv

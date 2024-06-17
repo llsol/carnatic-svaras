@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import os
 
-svara_data = pd.read_csv('svara_features/labels_features.csv')
+svara_data = pd.read_csv('features/features.csv')
 
 # extract the features and target
 
