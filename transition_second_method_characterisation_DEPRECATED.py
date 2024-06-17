@@ -171,6 +171,6 @@ df_normalized = df_normalized[['id'] + features_to_normalize.columns.tolist() + 
 
 # Save the normalized dataframe to a CSV file
 df_normalized.sort_values(by='id', inplace=True)
-df_normalized.to_csv('transition_data/svara_transitions_method_2.csv', index=False)
+df_normalized.to_csv('svara_transition/svara_transitions_method_2.csv', index=False)
 
 

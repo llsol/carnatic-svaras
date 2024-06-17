@@ -7,7 +7,7 @@ import pandas as pd
 import os
 
 # Load the data
-transition2_data = pd.read_csv('transition_data/svara_transitions_method_2.csv')
+transition2_data = pd.read_csv('svara_transition/svara_transitions_method_2.csv')
 
 # Print the initial columns of the data
 print("Initial columns in transition2_data:", transition2_data.columns)
