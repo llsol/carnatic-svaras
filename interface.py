@@ -1,14 +1,14 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import threading
-import svara_characterisation_context
-import svara_characterisation_labels
+import svara_characterisation_2_context
+import svara_characterisation_3_labels
 
 
 # ModificaciÃ³n para usar las dos funciones
 def feature_extraction(audio_file, text_file=None):
-    context_csv = svara_characterisation_context.characterisation_context(audio_file, text_file)
-    labels_csv = svara_characterisation_labels.characterisation_labels(audio_file, text_file)
+    context_csv = svara_characterisation_2_context.characterisation_context(audio_file, text_file)
+    labels_csv = svara_characterisation_3_labels.characterisation_labels(audio_file, text_file)
     return context_csv, labels_csv
 
 class App(ctk.CTk):
