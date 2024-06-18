@@ -2,103 +2,135 @@ import librosa
 import numpy as np
 import pandas as pd
 import os
-import matplotlib.pyplot as plt
 
-# Save annotation columns and read annotations file 
-annotation_columns = ['type', 'start', 'end', 'duration', 'svara']
-annotations_path = os.path.join('svara_task', 'kamakshi_new.txt')
-annotations = pd.read_csv(annotations_path, sep='\t', names=annotation_columns)
-
-# Convert 'start' and 'end' columns to seconds
+# Function to convert time string to seconds
 def time_to_seconds(time_str):
     h, m, s = map(float, time_str.split(':'))
     return h * 3600 + m * 60 + s
 
-annotations['start'] = annotations['start'].apply(time_to_seconds)
-annotations['end'] = annotations['end'].apply(time_to_seconds)
-
-# Accessing the audio file
-audio_file = os.path.join('svara_task', 'separated_data', 'voice_separated.mp3')
-
-# Load audio file
-y, sr = librosa.load(audio_file, mono=True)
-
-# Define window size (e.g., 0.1 seconds) for segments before and after transition
-window_size = 0.1  # seconds
+# Function to read segmentation data from a .txt file without headers
+def read_segmentation_data(file_path):
+    data = []
+    with open(file_path, 'r') as file:
+        for line in file:
+            parts = line.strip().split('\t')
+            data.append(parts)
+    return data
 
 # Function to extract features from an audio segment
-def extract_features(segment, previous_or_next):
-    features = {}
+def extract_features(y_segment, sr):
+    pitches, magnitudes = librosa.piptrack(y=y_segment, sr=sr)
 
-    # Extract the pitch
-    pitches, magnitudes = librosa.piptrack(y=segment, sr=sr)
     valid_pitches = pitches[pitches > 0]
+    max_pitch = np.max(valid_pitches) if valid_pitches.size > 0 else 0
+    min_pitch = np.min(valid_pitches) if valid_pitches.size > 0 else 0
+    mean_pitch = np.mean(valid_pitches) if valid_pitches.size > 0 else 0
+    std_pitch = np.std(valid_pitches) if valid_pitches.size > 0 else 0
 
-    if len(valid_pitches) > 0:
-        # PITCH CURVE FEATURES
-        second_derivative = np.diff(np.diff(magnitudes))
-        features[f'num_change_points_{previous_or_next}'] = np.sum(second_derivative[:-1] * second_derivative[1:] < 0)
-        features[f'std_{previous_or_next}'] = np.std(valid_pitches)
-    else:
-        features[f'num_change_points_{previous_or_next}'] = np.nan
-        features[f'std_{previous_or_next}'] = np.nan
+    second_derivative = np.diff(np.diff(magnitudes))
+    num_change_points = np.sum(second_derivative[:-1] * second_derivative[1:] < 0)
 
-    # TIME DOMAIN FEATURES:
-    splits = np.array_split(segment, 200)
+    splits = np.array_split(y_segment, 200)
     max_values = [np.max(np.abs(split)) for split in splits]
-    features[f'mean_amplitude_envelope_{previous_or_next}'] = np.mean(max_values)
-    features[f'loudness_{previous_or_next}'] = np.mean(librosa.feature.rms(y=segment)[0])
-    features[f'zero_cross_{previous_or_next}'] = np.mean(librosa.feature.zero_crossing_rate(y=segment)[0])
+    mean_amplitude_envelope = np.mean(max_values)
 
-    # FREQUENCY DOMAIN FEATURES:
-    stft = np.abs(librosa.stft(segment))
-    epsilon = 1e-10  # Small value to avoid division by zero
-    features[f'ber_{previous_or_next}'] = np.sum(stft[:stft.shape[0] // 2, :], axis=0) / (np.sum(stft[stft.shape[0] // 2:, :], axis=0) + epsilon)
-    features[f'spectral_centroid_{previous_or_next}'] = np.mean(librosa.feature.spectral_centroid(y=segment, sr=sr))
-    features[f'spectral_bandwidth_{previous_or_next}'] = np.mean(librosa.feature.spectral_bandwidth(y=segment, sr=sr))
+    loudness = np.mean(librosa.feature.rms(y=y_segment)[0])
+    zero_cross = np.mean(librosa.feature.zero_crossing_rate(y=y_segment)[0])
 
-    return features
+    stft = np.abs(librosa.stft(y_segment))
+    ber = np.sum(stft[:stft.shape[0] // 2, :], axis=0) / np.sum(stft[stft.shape[0] // 2:, :], axis=0)
+    band_energy_ratio = np.mean(ber)
 
-# Initialize lists to store the feature differences for transitions
-feature_transitions = []
+    spectral_centroid = np.mean(librosa.feature.spectral_centroid(y=y_segment, sr=sr))
+    spectral_bandwidth = np.mean(librosa.feature.spectral_bandwidth(y=y_segment, sr=sr))
 
-# Identify transition points
-transition_times = annotations['start'].tolist()
+    mfccs = librosa.feature.mfcc(y=y_segment, sr=sr, n_mfcc=13)
+    mfccs_mean = np.mean(mfccs, axis=1)
 
-# Calculate midpoints between transition points
-midpoints = [(transition_times[i] + transition_times[i+1]) / 2 for i in range(len(transition_times) - 1)]
+    return [
+        max_pitch, min_pitch, mean_pitch, num_change_points, std_pitch,
+        zero_cross, loudness, mean_amplitude_envelope, band_energy_ratio,
+        spectral_centroid, spectral_bandwidth,
+        *mfccs_mean
+    ]
 
-# Function to process a list of times (either transitions or midpoints)
-def process_times(times, label):
-    features = []
-    for time_point in times:
-        # Segment before and after the point
-        before_segment = y[int((time_point - window_size) * sr):int(time_point * sr)]
-        after_segment = y[int(time_point * sr):int((time_point + window_size) * sr)]
+# Function to create the feature dataset from fixed-length segments
+def create_feature_dataset(y, sr, segment_length_sec, segmentation_data):
+    segment_length_samples = int(segment_length_sec * sr)
+    num_segments = len(y) // segment_length_samples
+    feature_dataset = []
 
-        # Extract features from both segments
-        features_before = extract_features(before_segment, previous_or_next='prev')
-        features_after = extract_features(after_segment, previous_or_next='next')
+    for i in range(num_segments - 1):
+        start1 = i * segment_length_samples
+        end1 = start1 + segment_length_samples
+        start2 = end1
+        end2 = start2 + segment_length_samples
 
-        # Append the features to the list
-        features.append(features_before)
-        features.append(features_after)
-        if label == 'transition':
-            features[-1]['label'] = 1
+        y_segment1 = y[start1:end1]
+        y_segment2 = y[start2:end2]
 
-    return features
+        features1 = extract_features(y_segment1, sr)
+        features2 = extract_features(y_segment2, sr)
 
-# Process transition points
-feature_transitions = process_times(transition_times, label='transition')
+        segment_id = f"({i+1},{i+2})"
+        is_transition = 0
 
-# Create a DataFrame from the combined feature differences
-feature_transitions = pd.DataFrame(feature_transitions)
+        # Calculate times in seconds for the halves of the segments
+        segment1_middle_time = (start1 + end1) / 2 / sr
+        segment2_middle_time = (start2 + end2) / 2 / sr
 
-# Print the feature differences DataFrame
-print(feature_transitions)
+        # Check for transition based on segmentation data
+        for j in range(len(segmentation_data) - 1):
+            end_time_svara_i = time_to_seconds(segmentation_data[j][3])
+            start_time_svara_i_plus_1 = time_to_seconds(segmentation_data[j + 1][2])
 
-# Save the feature differences to a CSV file
-if not os.path.exists('svara_transition'):
-    os.makedirs('svara_transition')
+            if (segment1_middle_time <= end_time_svara_i <= end1 / sr) or \
+               (start2 / sr <= start_time_svara_i_plus_1 <= segment2_middle_time):
+                is_transition = 1
+                break
 
-feature_transitions.to_csv('svara_transition/svara_transitions_method_2.csv', index=False)
+        feature_row = [segment_id] + features1 + features2 + [is_transition]
+        feature_dataset.append(feature_row)
+
+    return feature_dataset
+
+# Define the headers for the new feature dataset
+new_headers = [
+    'id',
+    'max_pitch_1', 'min_pitch_1', 'mean_pitch_1', 'num_change_points_1', 'std_pitch_1',
+    'zero_cross_1', 'loudness_1', 'amplitude_envelope_1', 'band_energy_ratio_1',
+    'spectral_centroid_1', 'spectral_bandwidth_1',
+    'mfcc1_1', 'mfcc2_1', 'mfcc3_1', 'mfcc4_1', 'mfcc5_1',
+    'mfcc6_1', 'mfcc7_1', 'mfcc8_1', 'mfcc9_1', 'mfcc10_1',
+    'mfcc11_1', 'mfcc12_1', 'mfcc13_1',
+    'max_pitch_2', 'min_pitch_2', 'mean_pitch_2', 'num_change_points_2', 'std_pitch_2',
+    'zero_cross_2', 'loudness_2', 'amplitude_envelope_2', 'band_energy_ratio_2',
+    'spectral_centroid_2', 'spectral_bandwidth_2',
+    'mfcc1_2', 'mfcc2_2', 'mfcc3_2', 'mfcc4_2', 'mfcc5_2',
+    'mfcc6_2', 'mfcc7_2', 'mfcc8_2', 'mfcc9_2', 'mfcc10_2',
+    'mfcc11_2', 'mfcc12_2', 'mfcc13_2',
+    'is_transition'
+]
+
+# Paths
+input_file_path = 'svara_task/kamakshi_new.txt'  # Replace with your actual file path
+audio_file_path = 'svara_task/Kamakshi/Sanjay Subrahmanyan - Kamakshi.mp3'  # Replace with your actual audio file path
+
+# Read the segmentation data
+segmentation_data = read_segmentation_data(input_file_path)
+
+# Load the audio file
+y, sr = librosa.load(audio_file_path, sr=None)
+
+# Define the segment length in seconds
+segment_length_sec = 0.1
+
+# Create the feature dataset
+feature_dataset = create_feature_dataset(y, sr, segment_length_sec, segmentation_data)
+
+# Write the dataset to a .csv file
+output_file_path = 'svara_transition/svara_transitions_method_2.csv'
+df_feature_dataset = pd.DataFrame(feature_dataset, columns=new_headers)
+df_feature_dataset.to_csv(output_file_path, index=False)
+
+print("Feature dataset created and saved to 'svara_transitions_method_2.csv'")
