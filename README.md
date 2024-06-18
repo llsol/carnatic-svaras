@@ -9,7 +9,7 @@ This repository contains the implementation of software for the identification o
 - [Introduction](#introduction)
 - [Features](#features)
 - [Installation](#installation)
-- [Main Code File](#maincodefile)
+- [Main Code File](#main_code_file)
 - [Datasets](#datasets)
 - [Contributing](#contributing)
 - [License](#license)
