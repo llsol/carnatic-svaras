@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import os
 
-transition_data = pd.read_csv('svara_transition/svara_transitions_normalized.csv')
+transition_data = pd.read_csv('svara_transition/transition_features_two_sides.csv')
 
 # create is_not transition column with the opposite of is_transition
 transition_data['is_not_transition'] = transition_data['is_transition'].apply(lambda x: 1 if x == 0 else 0)
