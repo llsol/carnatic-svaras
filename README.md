@@ -12,6 +12,8 @@ This repository contains the implementation of software for the identification o
 - [Supporting Scripts](#supporting-scripts)
 - [Installation](#installation)
 - [Datasets](#datasets)
+- [Model Training](#model-training)
+- [Transition Characterization and Modelling](#transition-characterization-and-modeling)
 - [Further Development](#further-development)
 - [Other Files in Repository](#other-files-in-repository)
 - [Contributing](#contributing)
@@ -83,18 +85,26 @@ Further improvements to the project could include integrating this preprocessing
 
 ### First Dataset
 Features: Basic features without context or labels
-Accuracy: 30%
+f1-score: 0.30
 
 ### Second Dataset
 Features: Basic features with context of preceding and following segments
-Accuracy: 37%
+f1-score: 0.37
 
 ### Third Dataset
 Features: Basic features with labels for previous and next svaras
-Accuracy: 84%
+f1-score: 0.84
 
 ## Model Training
 The model is a Gradient Boosting Classifier trained using the sklearn library. The datasets are split into training and testing sets, and missing values are handled using SimpleImputer. The training process includes saving the datasets to .csv files for reproducibility.
+
+## Transition characterization and modeling
+
+The following files consititute the current state of this research in the task of segmentation. 
+
+transition_second_model_characterisation.py extracts features from audio segments and pairs them, labeling each pair based on whether there is a transition between them. The script focuses in transition detection.
+
+transition_identification_model_second_method.py uses the features extracted and characterized by the transition_second_model_characterisation.py script. The model is trained and evaluated using a Gradient Boosting Classifier. Current best result is f1-score = 0.71.
 
 ## Further Development
 
@@ -109,7 +119,6 @@ The model is a Gradient Boosting Classifier trained using the sklearn library. T
 - We have not yet tested methods based on the use of Dynamic Time Warping (DTW). It would be interesting to select 'model' samples of individual svaras and calculate their similarity, scanning through the piece. Additionally, with field knowledge, the different major versions of the svara could be selected and all used. This derives from the idea that while a svara experiences coarticulation effects, some versions seem to be more prevalent.
 - In relation to what was mentioned just above, one way to segment could follow an order-based strategy. This would consist of seeing (if it happens) which svaras segment better with the previous method and successively segmenting the svaras that work best, leaving the most ambiguous ones for the end. This could yield better intermediate results.
 
-You can add this section at the appropriate place in your existing README.md file. Let me know if you need any further adjustments!
 
 ## Other Files in Repository
 
@@ -118,6 +127,7 @@ All the files related to transition characterization and prediction have given n
 - **transition_feature_visualizations.py**: Running this script shows the low potential of the features extracted and strategies tried so far to predict where transitions between svaras are. These had the aim to develop a segmentation pipeline.
 
 - **svara_feature_spearman_rank_correlation_matrix.py**: This script shows the features used for the svara characterization.
+
 
 
 ## Contributing
