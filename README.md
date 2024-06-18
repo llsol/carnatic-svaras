@@ -9,7 +9,7 @@ This repository contains the implementation of software for the identification o
 - [Introduction](#introduction)
 - [Features](#features)
 - [Installation](#installation)
-- [Usage](#usage)
+- [Main Code File](#maincodefile)
 - [Datasets](#datasets)
 - [Contributing](#contributing)
 - [License](#license)
@@ -40,6 +40,18 @@ This repository contains the implementation of software for the identification o
     ```sh
     pip install -r requirements.txt
     ```
+
+## Main Code File
+
+The main code file for this project is `interface.py`. This script creates a user-friendly interface for audio processing, utilizing customtkinter for the graphical interface. It allows users to select audio and text files, extract features with context or labels, and download the resulting CSV files.
+
+The `interface.py` script integrates functionalities from the following scripts:
+- `svara_characterisation_2_context.py`: For extracting features with context.
+- `svara_characterisation_3_labels.py`: For extracting features with labels.
+
+Here is an overview of the main sections of `interface.py`:
+- **File Selection Tab**: Allows the user to select audio and text files for analysis.
+- **Feature Extraction Tab**: Provides options to extract features with context or labels and download the resulting CSV files.
 
 ## Datasets
 
