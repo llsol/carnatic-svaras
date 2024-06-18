@@ -11,8 +11,9 @@ This repository contains the implementation of software for the identification o
 - [Main Code File](#main-code-file)
 - [Supporting Scripts](#supporting-scripts)
 - [Installation](#installation)
-- [Main Code File](#main)
 - [Datasets](#datasets)
+- [Further Development](#further-development)
+- [Other Files in Repository](#other-files-in-repository)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -94,4 +95,38 @@ Accuracy: 84%
 
 ## Model Training
 The model is a Gradient Boosting Classifier trained using the sklearn library. The datasets are split into training and testing sets, and missing values are handled using SimpleImputer. The training process includes saving the datasets to .csv files for reproducibility.
+
+## Further Development
+
+### Svara Identification
+
+- A comparative study with different tools for separating the main voice might have the potential to slightly improve the performance of the predictive model.
+- A comparative and systematic study of different tools for extracting more complex features, such as the extraction of the main melody (for this, there are tools beyond what librosa offers), could also influence the result.
+- A general collection of descriptors and their Spearman analysis, not only by feature but also by comparing their ability to differentiate each pair of svaras, could help select the most promising features.
+
+### Svara Segmentation
+
+- We have not yet tested methods based on the use of Dynamic Time Warping (DTW). It would be interesting to select 'model' samples of individual svaras and calculate their similarity, scanning through the piece. Additionally, with field knowledge, the different major versions of the svara could be selected and all used. This derives from the idea that while a svara experiences coarticulation effects, some versions seem to be more prevalent.
+- In relation to what was mentioned just above, one way to segment could follow an order-based strategy. This would consist of seeing (if it happens) which svaras segment better with the previous method and successively segmenting the svaras that work best, leaving the most ambiguous ones for the end. This could yield better intermediate results.
+
+You can add this section at the appropriate place in your existing README.md file. Let me know if you need any further adjustments!
+
+## Other Files in Repository
+
+All the files related to transition characterization and prediction have given negative results, so they will be removed soon.
+
+- **transition_feature_visualizations.py**: Running this script shows the low potential of the features extracted and strategies tried so far to predict where transitions between svaras are. These had the aim to develop a segmentation pipeline.
+
+- **svara_feature_spearman_rank_correlation_matrix.py**: This script shows the features used for the svara characterization.
+
+
+## Contributing
+
+Contributions are welcome! Please fork the repository and submit a pull request. For major changes, please open an issue first to discuss what you would like to change.
+
+
+## License
+
+This project is licensed under the GNU General Public License. See the [LICENSE](LICENSE) file for more details.
+
 
